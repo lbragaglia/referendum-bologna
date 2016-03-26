@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Reddito 2010 per area statistica</title>
+	<meta charset="utf-8" />
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
+	<!--[if lte IE 8]><link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.6.2/leaflet.ie.css" /><![endif]-->
+
+	<style>
+		#map {
+			width: 100%;
+			height: 600px;
+		}
+
+		.info {
+			padding: 6px 8px;
+			font: 14px/16px Arial, Helvetica, sans-serif;
+			background: white;
+			background: rgba(255,255,255,0.8);
+			box-shadow: 0 0 15px rgba(0,0,0,0.2);
+			border-radius: 5px;
+		}
+		.info h4 {
+			margin: 0 0 5px;
+			color: #777;
+		}
+
+		.legend {
+			text-align: left;
+			line-height: 18px;
+			color: #555;
+		}
+		.legend i {
+			width: 18px;
+			height: 18px;
+			float: left;
+			margin-right: 8px;
+			opacity: 0.7;
+		}
+	</style>
+
+</head>
+<body>
+	<div id="map"></div>
+
+	<script src="reddito_aree_stat.geojson" type="text/javascript"></script>
+	<script src="http://cdn.leafletjs.com/leaflet-0.6.2/leaflet.js"></script>
+
+	<script type="text/javascript">
+		(function () {
+
+		var map = L.map('map').setView([44.495036,11.342697], 11);
+
+		var cloudmade = L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
+			attribution: 'Map data &copy; 2013 OpenStreetMap contributors, Imagery &copy; 2013 CloudMade',
+			key: 'BC9A493B41014CAABB98F0471D759707',
+			styleId: 22677
+		}).addTo(map);
+
+
+		// control that shows state info on hover
+		var info = L.control();
+		info.onAdd = function (map) {
+			this._div = L.DomUtil.create('div', 'info');
+			this.update();
+			return this._div;
+		};
+		info.update = function (props) {
+			var infoHtml = '<h4>Reddito per area statistica</h4>';
+			if (!props) {
+				infoHtml = infoHtml + 'Muovi il cursore<br/> sopra un\'area statistica';
+			} else {
+				if (props.REDDITO_MEDIO) {
+					infoHtml = infoHtml + '<b>Area ' + props.NOMEAREAST + '</b><br/>' + props.REDDITO_MEDIO + ' € <small>scelta A ' + props.AREA_A + '%</small>';
+				} else {
+					infoHtml = infoHtml + 'Dati non disponibili';
+				}
+			}
+			this._div.innerHTML =  infoHtml;
+		};
+		info.onRemove = function (map) {};
+		info.addTo(map);
+
+		function getColor(d) {
+			if (typeof d == "string") {
+				d=parseFloat(d.replace(',', '.'));
+			}
+			return d > 50000 ? '#800026' :
+			       d > 45000  ? '#BD0026' :
+			       d > 40000  ? '#E31A1C' :
+			       d > 35000  ? '#FC4E2A' :
+			       d > 30000   ? '#FD8D3C' :
+			       d > 25000   ? '#FEB24C' :
+			       d > 20000   ? '#FED976' :
+			                  '#FFEDA0';
+		}
+		function style(feature) {
+			return {
+				weight: 1,
+				opacity: 1,
+				color: 'white',
+				dashArray: '3',
+				fillOpacity: feature.properties.REDDITO_MEDIO ? 0.9 : 0,
+				fillColor: getColor(feature.properties.REDDITO_MEDIO)
+			};
+		}
+		function highlightFeature(e) {
+			var layer = e.target;
+
+			layer.setStyle({
+				weight: 3,
+				color: '#666',
+				dashArray: '3',
+				fillOpacity: layer.feature.properties.REDDITO_MEDIO ? 0.1 : 0
+			});
+
+			if (!L.Browser.ie && !L.Browser.opera) {
+				layer.bringToFront();
+			}
+
+			info.update(layer.feature.properties);
+		}
+
+		var esito;
+
+		function resetHighlight(e) {
+			esito.resetStyle(e.target);
+			info.update();
+		}
+		function zoomToFeature(e) {
+			var layer = e.target;
+			if (layer.feature.properties.REDDITO_MEDIO) {
+				map.fitBounds(layer.getBounds());
+			}
+		}
+		function onEachFeature(feature, layer) {
+			layer.on({
+				mouseover: highlightFeature,
+				mouseout: resetHighlight,
+				click: zoomToFeature
+			});
+		}
+
+		esito = L.geoJson(aree_stat, {
+			style: style,
+			onEachFeature: onEachFeature
+		}).addTo(map);
+
+		map.attributionControl.addAttribution('Dati &copy; <a href="http://dati.comune.bologna.it/">Comune di Bologna</a>');
+
+		var legend = L.control({position: 'bottomright'});
+		legend.onAdd = function (map) {
+
+			var div = L.DomUtil.create('div', 'info legend'),
+				grades = [15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000],
+				labels = [],
+				from, to;
+
+			for (var i = 0; i < grades.length; i++) {
+				from = grades[i];
+				to = grades[i + 1];
+
+				labels.push(
+					'<i style="background:' + getColor(from + 1) + '"></i> ' +
+					from + (to ? '&ndash;' + to : '+'));
+			}
+
+			div.innerHTML = labels.join('<br>');
+			return div;
+		};
+		legend.addTo(map);
+
+		}());
+	</script>
+</body>
+</html>
